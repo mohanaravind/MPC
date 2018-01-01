@@ -8,7 +8,7 @@ To drive a car autonomously around a track the `steering` and `throttle/brake` n
 
 ![drive video](assets/drive_video.png)
 
-Check out the video on [YouTube](https://www.youtube.com/watch?v=9rSib16fYHQ)
+Check out the video on [YouTube](https://www.youtube.com/watch?v=XAxl9Q1237E)
 
 ![](assets/autonomous_flow.png)
 
