@@ -130,6 +130,7 @@ int main() {
           double cte = mpc.polyeval(coeffs, px) - py;
           double epsi = psi - atan(coeffs[1]);
 
+
           // prepare the current state of the vehicle
           Eigen::VectorXd state(6);
           state << px, py, psi, v, cte, epsi;

@@ -44,30 +44,32 @@ Using a `Dynamic Model` would mean we have to take into account of tire forces, 
 Parameter | Tuned Value
 ------- |--------
 N (Timestep length) | 10
-dt (Duration) | 0.2
+dt (Duration) | 0.1
 
 These parameters were tuned by trial and modify method. Initial values that I tried was `30, 20, 5, 8`.
 Higher the value of time step greater the time taken to solve. This created a bigger latency between the actuation. Reducing the timestep too much resulted in greater fluctuation of actuator value. Duration was chosen with reference to the existing latency in the system. In this problem we have the latency of the system as `100 milliseconds` and starting with a value of `0.01` and increasing it gradually brought the current value of duration. Having too less duration doesn't allow the system to plan ahead of time. The prediction part of MPC gets affected.
+
+What I realized tuning these hyperparameters is they can make a big difference in the controller. Difference between `0.2` and `0.1` for the duration value (dt) is a big deal in this model
 
 ### Cost Function
 Control the system by punishing it more when it deviates from the original track. The weight `5000` is to give more importance to this in the cost. Orientation of the vehicle gets a lesser weight of `2000`. Keeping the reference velocity at 70 we dont try to maximize this effect.
 
 ``` C++
-  cost += 5000 * CppAD::pow(vars[cte_start + t], 2);
-  cost += 2000 * CppAD::pow(vars[epsi_start + t], 2);
-  cost += 2 * CppAD::pow(vars[v_start + t] - ref_v, 2);
+  cost += 500 * CppAD::pow(vars[cte_start + t], 2);
+  cost += 500 * CppAD::pow(vars[epsi_start + t], 2);
+  cost += 4 * CppAD::pow(vars[v_start + t] - ref_v, 2);
 ```
 
 To avoid fluctuation of control signals we would have to reduce the actuation of actuators
 ``` c++
-  cost += 700 * CppAD::pow(vars[delta_start + t], 2);
-  cost += 700 * CppAD::pow(vars[a_start + t], 2);
+  cost += 150 * CppAD::pow(vars[delta_start + t], 2);
+  cost += 150 * CppAD::pow(vars[a_start + t], 2);
 ```
 
 To avoid motion sickness for the passengers and allow a smooth drive we try to minimize the gap between sequential actuations
 ``` c++
-  cost += 50 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-  cost += 50 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+  cost += 15 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+  cost += 15 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
 ```
 
 We could add other factors as part of the cost function. The weights that has been used to drive these cost functions play a major role in fine tuning the controller
@@ -80,6 +82,13 @@ Constraints and boundaries helps the solver be aware of the flexibility it has t
 
 ![constraints](assets/constraints.png)
 
+#### Adjusting for latency
+The simulation system has a latency of 100 millisecond. We overcome this latency by taking the average values of steer and throttle for the last 3 simulated timestep
+
+``` c++
+  double steer_val = (solution.x[delta_start] + solution.x[delta_start + 1] + solution.x[delta_start + 2]) / 3.0;
+  double throttle_val = (solution.x[a_start] + solution.x[a_start + 1] + solution.x[a_start + 2] ) / 3.0;
+```
 
 ## Dependencies
 

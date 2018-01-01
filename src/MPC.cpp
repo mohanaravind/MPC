@@ -8,7 +8,7 @@ using CppAD::AD;
 
 // TODO: Set the timestep length and duration
 const size_t N = 10;
-const double dt = 0.2;
+const double dt = 0.1;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -24,7 +24,7 @@ const double Lf = 2.67;
 
 // Both the reference cross track and orientation errors are 0.
 // The reference velocity is set to 40 mph.
-const double ref_v = 70;
+const double ref_v = 90;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -57,21 +57,21 @@ class FG_eval {
 
     // The part of the cost based on the reference state.
     for (int t = 0; t < N; t++) {
-      fg[0] += 5000 * CppAD::pow(vars[cte_start + t], 2);
-      fg[0] += 2000 * CppAD::pow(vars[epsi_start + t], 2);
-      fg[0] += 2 * CppAD::pow(vars[v_start + t] - ref_v, 2);
+      fg[0] += 500 * CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += 500 * CppAD::pow(vars[epsi_start + t], 2);
+      fg[0] += 4 * CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
 
     // Minimize the use of actuators.
     for (int t = 0; t < N - 1; t++) {
-      fg[0] += 700 * CppAD::pow(vars[delta_start + t], 2);
-      fg[0] += 700 * CppAD::pow(vars[a_start + t], 2);
+      fg[0] += 150 * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += 150 * CppAD::pow(vars[a_start + t], 2);
     }
 
     // Minimize the value gap between sequential actuations. (smooth drive)
     for (int t = 0; t < N - 2; t++) {
-      fg[0] += 50 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-      fg[0] += 50 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+      fg[0] += 15 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += 15 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     //
@@ -111,7 +111,7 @@ class FG_eval {
 
       // actuation at time t
       AD<double> delta0 = vars[delta_start + t - 1];
-      AD<double> a0 = vars[a_start + t - 1];      
+      AD<double> a0 = vars[a_start + t - 1];    
 
       // Assuming 3rd order Polynomial
       AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * CppAD::pow(x0, 2) + coeffs[3] * CppAD::pow(x0, 3);
@@ -269,10 +269,13 @@ vector<vector<double>> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
     y_vals.push_back(solution.x[idx + y_start]);
   }
 
+  // to overcome the effect of latency in the system we average the value of the last 3 simulated points
   vector<double> delta;
-  vector<double> a;
-  delta.push_back(solution.x[delta_start]);
-  a.push_back(solution.x[a_start]);
+  vector<double> a;  
+  double steer_val = (solution.x[delta_start] + solution.x[delta_start + 1] + solution.x[delta_start + 2]) / 3.0;
+  double throttle_val = (solution.x[a_start] + solution.x[a_start + 1] + solution.x[a_start + 2] ) / 3.0;
+  delta.push_back(steer_val);
+  a.push_back(throttle_val);
 
   return { delta, a, x_vals, y_vals };
 }
