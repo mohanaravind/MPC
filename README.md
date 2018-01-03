@@ -83,11 +83,27 @@ Constraints and boundaries helps the solver be aware of the flexibility it has t
 ![constraints](assets/constraints.png)
 
 #### Adjusting for latency
+
+##### Initial method (Average)
+
 The simulation system has a latency of 100 millisecond. We overcome this latency by taking the average values of steer and throttle for the last 3 simulated timestep
 
 ``` c++
   double steer_val = (solution.x[delta_start] + solution.x[delta_start + 1] + solution.x[delta_start + 2]) / 3.0;
   double throttle_val = (solution.x[a_start] + solution.x[a_start + 1] + solution.x[a_start + 2] ) / 3.0;
+```
+
+This will not work when the car should make a hard left, go straight, then hard right. The car would end up going straight.
+
+##### Better method (next time step)
+
+Getting the steer and throttle value in the next time step.
+
+``` c++
+
+prev_delta = solution.x[delta_start+fixed_steps];
+prev_a = solution.x[a_start+fixed_steps];
+
 ```
 
 ## Dependencies

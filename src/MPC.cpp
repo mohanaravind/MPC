@@ -38,6 +38,12 @@ size_t epsi_start = cte_start + N;
 size_t delta_start = epsi_start + N;
 size_t a_start = delta_start + N - 1;
 
+//definie the timestep to constraint and variables to save actuator values
+const double latency = 0.1;
+size_t fixed_steps = latency/dt;
+static double prev_delta = 0;
+static double prev_a = 0;
+
 class FG_eval {
  public:
   // Fitted polynomial coefficients
@@ -64,14 +70,14 @@ class FG_eval {
 
     // Minimize the use of actuators.
     for (int t = 0; t < N - 1; t++) {
-      fg[0] += 150 * CppAD::pow(vars[delta_start + t], 2);
-      fg[0] += 150 * CppAD::pow(vars[a_start + t], 2);
+      fg[0] += 950 * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += 950 * CppAD::pow(vars[a_start + t], 2);
     }
 
     // Minimize the value gap between sequential actuations. (smooth drive)
     for (int t = 0; t < N - 2; t++) {
-      fg[0] += 15 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-      fg[0] += 15 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+      fg[0] += 985 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += 985 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     //
@@ -194,13 +200,26 @@ vector<vector<double>> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
     vars_lowerbound[i] = -0.436332;
     vars_upperbound[i] = 0.436332;
   }
-
+  
   // Acceleration/decceleration upper and lower limits.
   // NOTE: Feel free to change this to something else.
   for (int i = a_start; i < n_vars; i++) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;
   }  
+
+  // set constraints to overcome latency
+  for (int i = delta_start; i < delta_start + fixed_steps; i++)
+  {
+      vars_lowerbound[i] = prev_delta;
+      vars_upperbound[i] = prev_delta;
+  }
+  
+  for (int i = a_start; i < a_start + fixed_steps; i++)
+  {
+      vars_lowerbound[i] = prev_a;
+      vars_upperbound[i] = prev_a;
+  }
 
   // Lower and upper limits for the constraints
   // Should be 0 besides initial state.
@@ -272,11 +291,18 @@ vector<vector<double>> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs)
   // to overcome the effect of latency in the system we average the value of the last 3 simulated points
   vector<double> delta;
   vector<double> a;  
-  double steer_val = (solution.x[delta_start] + solution.x[delta_start + 1] + solution.x[delta_start + 2]) / 3.0;
-  double throttle_val = (solution.x[a_start] + solution.x[a_start + 1] + solution.x[a_start + 2] ) / 3.0;
+  // double steer_val = (solution.x[delta_start] + solution.x[delta_start + 1] + solution.x[delta_start + 2]) / 3.0;
+  // double throttle_val = (solution.x[a_start] + solution.x[a_start + 1] + solution.x[a_start + 2] ) / 3.0;
+
+  // save values after solving MPC
+  prev_delta = solution.x[delta_start+fixed_steps];
+  prev_a = solution.x[a_start+fixed_steps];
+
+  double steer_val = solution.x[delta_start+fixed_steps];
+  double throttle_val = solution.x[a_start+fixed_steps];
   delta.push_back(steer_val);
   a.push_back(throttle_val);
-
+  
   return { delta, a, x_vals, y_vals };
 }
 
